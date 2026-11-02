@@ -26,17 +26,23 @@
       </div>
       <div class="side-bottom">
         <div class="storage-note"><span class="status-dot"></span><span><strong>本地演示模式</strong><small id="storageStatusText">数据保存在当前浏览器</small></span></div>
+        <!-- SERVER_TOOLS -->
         <button class="side-link" id="exportBtn"><span class="nav-icon">⇩</span>导出数据</button>
         <label class="side-link import-label"><span class="nav-icon">⇧</span>导入数据<input type="file" id="importInput" accept=".json,application/json"></label>
       </div>
     </aside>
 
-    <main class="main"><div id="storageWarning" class="storage-warning" role="alert" hidden>浏览器本地保存失败：请立即导出 JSON 备份。不要仅依赖本地存储。</div>
+    <main class="main">
+      <div class="save-notice" id="storageWarning" hidden role="alert" aria-live="assertive">
+        <span class="save-notice-icon" aria-hidden="true">!</span>
+        <div class="save-notice-copy"><strong id="saveNoticeTitle">数据未能保存</strong><span id="saveNoticeDetail">请检查服务器连接或重新登录。</span></div>
+        <button type="button" class="save-notice-dismiss" id="dismissSaveNotice" aria-label="关闭提示">×</button>
+      </div>
       <header class="topbar">
         <button class="mobile-menu" id="mobileMenu" aria-label="打开菜单">☰</button>
         <div class="breadcrumb">工作空间 <span>/</span> <strong id="breadcrumbCurrent">周度工作台</strong></div>
         <div class="top-actions">
-          <span class="local-indicator"><i></i> 自动保存在本机</span>
+          <span class="local-indicator"><i></i> <span id="localSaveIndicator">自动保存在本机</span></span>
           <button class="btn btn-primary" id="addRecordTop"><span>＋</span> 新增记录</button>
         </div>
       </header>
@@ -119,7 +125,7 @@
         </div>
         <div class="year-tip">提示：每周从星期日开始，到星期六结束。第 1 周为包含当年 1 月 1 日的那一周，跨年周归属于包含新年 1 月 1 日的年份。</div>
       </section>
-      <footer class="footer">Weekly Worklog <span>·</span> v1.1.0 <span>·</span> 周度工作档案</footer>
+      <footer class="footer">Weekly Worklog <span>·</span> v2.0.0 <span>·</span> 周度工作档案</footer>
     </main>
   </div>
 
@@ -173,7 +179,27 @@
       </div>
     </section>
   </div>
-  <div class="modal-backdrop" id="reportModal" hidden><section class="modal" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle"><div class="modal-header"><div><div class="eyebrow">WORK REPORT</div><h2 id="reportModalTitle">工作报告导出</h2></div><button type="button" class="icon-btn" id="closeReportModal">×</button></div><p class="report-intro">下载可独立打开的 HTML 年度档案或单周报告；样式内嵌，支持浏览器打印。</p><div class="report-fields"><div class="form-field"><label for="reportScope">导出范围</label><select id="reportScope"><option value="year">年度工作档案</option><option value="week">指定周工作报告</option></select></div><div class="form-field"><label for="reportYear">年份</label><select id="reportYear"></select></div><div class="form-field" id="reportWeekWrap" hidden><label for="reportWeek">周次</label><select id="reportWeek"></select></div></div><p class="report-intro" id="reportInfo"></p><div class="modal-footer"><button type="button" class="btn btn-outline" id="reportPreview">预览报告</button><button type="button" class="btn btn-primary" id="reportDownload">下载 HTML</button></div></section></div>
+  <div class="modal-backdrop" id="reportModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+      <div class="modal-header">
+        <div><div class="eyebrow">WORK REPORT</div><h2 id="reportModalTitle">工作报告导出</h2></div>
+        <button class="icon-btn close-modal" id="closeReportModal" aria-label="关闭报告设置">×</button>
+      </div>
+      <p class="report-intro">生成一个可离线打开的独立 HTML 文件，内含全部样式、周次导航与工作明细。可直接分享，也可使用浏览器打印为 PDF。</p>
+      <div class="report-form">
+        <div class="form-field"><label for="reportScope">报告范围</label>
+          <select id="reportScope"><option value="year">年度工作档案</option><option value="week">指定周工作报告</option></select>
+        </div>
+        <div class="form-field"><label for="reportYear">选择年份</label><select id="reportYear"></select></div>
+        <div class="form-field" id="reportWeekWrap" hidden><label for="reportWeek">选择周次</label><select id="reportWeek"></select></div>
+      </div>
+      <div class="report-info" id="reportInfo" role="status"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="reportPreview">预览报告</button>
+        <button type="button" class="btn btn-primary" id="reportDownload">下载 HTML</button>
+      </div>
+    </section>
+  </div>
   <div class="toast" id="toast" role="status"></div>
   <script src="assets/js/calendar.js"></script>
   <script src="assets/js/storage.js"></script>

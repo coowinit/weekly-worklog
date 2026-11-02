@@ -1,6 +1,18 @@
+# Local/private data: NEVER commit to a public repository
+/config.local.php
+/storage/*.sqlite*
+/storage/*.db*
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.db
+*.json.bak
+/backups/
+*.log
 .DS_Store
 Thumbs.db
 desktop.ini
-*.log
 .vscode/
 .idea/

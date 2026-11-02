@@ -4,6 +4,10 @@
   const today = new Date();
   const Calendar = window.WorklogCalendar;
   const Storage = window.WorklogStorage;
+  const server = window.WORKLOG_SERVER || null;
+  const serverPage = location.pathname.toLowerCase().endsWith(".php");
+  let revision = server?.revision || 0;
+  let saving = Promise.resolve();
   const dateISO = d => Calendar.dateKey(d);
   const weekStart = (year, week) => Calendar.getWeekStart(year, week);
   const weekDates = (year, week) => Calendar.datesInWeek(year, week);
@@ -26,12 +30,20 @@
   }
   function escapeHTML(s="") { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
   function load() {
-    const saved = Storage.read(localStorage);
+    const saved = server ? {records:server.records,categories:server.categories,exists:true} :
+      serverPage ? {records:[],categories:null,exists:true,error:new Error("PHP 未注入服务器数据，请检查 index.php 和静态缓存配置")} : Storage.read(localStorage);
     state.records = saved.records;
     state.categories = saved.categories && saved.categories.length ? saved.categories : DEFAULT_CATEGORIES.map(c=>({...c}));
     migrateLegacyCategories();
     if (saved.error) console.warn("读取本地数据失败", saved.error);
+    // Never rewrite an existing storage entry merely on startup.
+    // This was causing QuotaExceededError during page initialization.
     if (!saved.exists && !saved.error) seedDemo();
+    if (server && !state.categories.length) state.categories = DEFAULT_CATEGORIES.map(c=>({...c}));
+    if (saved.error) {
+      if(serverPage)showSaveError(saved.error.message,"服务器初始化失败");
+      else markStorageFailure(saved.error);
+    }
   }
   function seedDemo() {
     const demoWeek = {year:state.year,week:state.week};
@@ -45,7 +57,71 @@
     state.records = samples.map((r,i)=>({...r,id:`demo-${i+1}`,createdAt:new Date(`${r.date}T12:00:00`).toISOString()}));
     save();
   }
-  function save() { const result=Storage.save(localStorage,state.records,state.categories); if(!result.ok){ console.warn("Weekly Worklog 本地存储写入失败",result.error);$("storageWarning").hidden=false;$("storageStatusText").textContent="保存失败，请导出备份"; return false;} $("storageWarning").hidden=true;$("storageStatusText").textContent="数据保存在当前浏览器";return true; }
+  function showSaveError(message, title="数据未能保存") {
+    const box=$("storageWarning");
+    $("saveNoticeTitle").textContent=title;
+    $("saveNoticeDetail").textContent=message;
+    box.hidden=false;
+    const status=$("storageStatusText");
+    if(status)status.textContent="保存失败 · 请检查提示";
+    const indicator=$("localSaveIndicator");
+    if(indicator)indicator.textContent=server?"SQLite 保存异常":"本地存储异常";
+  }
+  function clearSaveError() {
+    $("storageWarning").hidden=true;
+    $("storageStatusText").textContent=server?"数据已保存至 SQLite":"数据保存在当前浏览器";
+    const indicator=$("localSaveIndicator");
+    if(indicator)indicator.textContent=server?"SQLite 数据已保存":"自动保存在本机";
+  }
+  function markStorageFailure(error) {
+    console.warn("Weekly Worklog LocalStorage 保存失败",error);
+    showSaveError("浏览器无法保存这次修改，请立即导出 JSON 备份。", "浏览器存储失败");
+  }
+  async function requestDatabaseSave(payload) {
+    let response;
+    try {
+      response=await fetch('api.php',{method:'PUT',credentials:'same-origin',cache:'no-store',headers:{
+        'Content-Type':'application/json','Accept':'application/json','X-Worklog-CSRF':server.csrf
+      },body:JSON.stringify({...payload,revision})});
+    } catch(error) {
+      throw new Error("无法连接 PHP API。请检查网络、api.php 路径及服务器状态。",{cause:error});
+    }
+    const raw=await response.text();
+    let result;
+    try { result=JSON.parse(raw); }
+    catch { throw new Error(`PHP API 返回了非 JSON 内容（HTTP ${response.status}）。请检查服务器 PHP 日志及缓存配置。`); }
+    if(!response.ok) {
+      const reason=typeof result.error==='string'?result.error:`HTTP ${response.status}`;
+      if(response.status===401)throw new Error("登录会话已过期，请先导出 JSON 备份，再重新登录。" );
+      if(response.status===403)throw new Error("安全令牌校验失败。请先导出 JSON 备份，再刷新页面重新登录。" );
+      if(response.status===409)throw new Error("数据库数据版本冲突："+reason+"。请先导出 JSON 备份。" );
+      if(response.status===422)throw new Error("数据库拒绝了提交的数据："+reason);
+      throw new Error("服务器保存失败（HTTP "+response.status+"）："+reason);
+    }
+    if(!Number.isInteger(result.revision)) throw new Error("PHP API 未返回有效的数据版本号，无法确认保存成功。");
+    return result.revision;
+  }
+  function save() {
+    if(!server) {
+      const result=Storage.save(localStorage,state.records,state.categories);
+      if(!result.ok){markStorageFailure(result.error);return Promise.resolve(false);}
+      clearSaveError();return Promise.resolve(true);
+    }
+    const payload={records:JSON.parse(JSON.stringify(state.records)),categories:JSON.parse(JSON.stringify(state.categories))};
+    // Queue writes, preserving order and avoiding stale revisions.
+    const task=saving.then(async()=>{
+      try {
+        revision=await requestDatabaseSave(payload);
+        clearSaveError();return true;
+      } catch(error) {
+        console.error("Weekly Worklog SQLite 保存失败",error);
+        showSaveError(error.message,"SQLite 数据库保存失败");
+        return false;
+      }
+    });
+    saving=task.then(()=>undefined);
+    return task;
+  }
   function migrateLegacyCategories() {
     state.categories = state.categories.map((c,i)=>({...c,id:c.id||`cat_${i+1}`,sort:Number(c.sort)||i+1,color:c.color||"gray"}));
     state.records = state.records.map(r=>{
@@ -171,27 +247,28 @@
       </div>`;
     }).join("");
   }
-  function saveCategory(e) {
+  async function saveCategory(e) {
     e.preventDefault();
     const name=$("categoryName").value.trim(), color=$("categoryColor").value, id=$("categoryId").value;
     if(!name){$("categoryName").focus();return;}
     if(state.categories.some(c=>c.name.toLowerCase()===name.toLowerCase()&&c.id!==id)){showToast("分类名称已存在");return;}
     if(id) {
       state.categories=state.categories.map(c=>c.id===id?{...c,name,color}:c);
-      showToast("分类已更新");
+      // Result is shown only after database persistence.
     } else {
       state.categories.push({id:`cat_${Date.now()}_${Math.random().toString(16).slice(2,6)}`,name,color,sort:Math.max(0,...state.categories.map(c=>c.sort||0))+1});
-      showToast("分类已添加");
+      // Result is shown only after database persistence.
     }
-    const persisted=save();resetCategoryForm();renderCategoryManager();refresh();if(!persisted)showToast("分类未能保存，刷新后会丢失");
+    const persisted=await save(); resetCategoryForm(); renderCategoryManager(); refresh();
+    showToast(persisted?(id?"分类已更新":"分类已添加"):"分类未能保存，请导出 JSON 备份");
   }
-  function requestDeleteCategory(id) {
+  async function requestDeleteCategory(id) {
     const category=state.categories.find(c=>c.id===id); if(!category)return;
     if(state.categories.length<=1){showToast("至少需要保留一个工作分类");return;}
     const count=state.records.filter(r=>r.categoryId===id).length;
     if(!count) {
       if(confirm(`确定删除分类「${category.name}」吗？`)) {
-        state.categories=state.categories.filter(c=>c.id!==id); const persisted=save();renderCategoryManager();refresh();showToast(persisted?"分类已删除":"分类删除未能保存，刷新后会恢复");
+        state.categories=state.categories.filter(c=>c.id!==id); const persisted=await save();renderCategoryManager();refresh();showToast(persisted?"分类已删除":"保存失败，请备份 JSON");
       }
       return;
     }
@@ -200,88 +277,19 @@
     $("replacementCategory").innerHTML=state.categories.filter(c=>c.id!==id).map(c=>`<option value="${escapeHTML(c.id)}">${escapeHTML(c.name)}</option>`).join("");
     $("categoryDeletePanel").hidden=false;
   }
-  function confirmDeleteCategory() {
+  async function confirmDeleteCategory() {
     const id=state.deletingCategoryId, target=$("replacementCategory").value;
     if(!id||!target)return;
     state.records=state.records.map(r=>r.categoryId===id?{...r,categoryId:target}:r);
     state.categories=state.categories.filter(c=>c.id!==id);
-    state.deletingCategoryId=null;const persisted=save();$("categoryDeletePanel").hidden=true;
-    renderCategoryManager();refresh();showToast(persisted?"记录已转移，分类已删除":"变更未能保存，刷新后会丢失");
+    state.deletingCategoryId=null;const persisted=await save();$("categoryDeletePanel").hidden=true;
+    renderCategoryManager();refresh();showToast(persisted?"记录已转移，分类已删除":"保存失败，请备份 JSON");
   }
-  function moveCategory(id, direction) {
+  async function moveCategory(id, direction) {
     const sorted=[...state.categories].sort((a,b)=>a.sort-b.sort), index=sorted.findIndex(c=>c.id===id), next=index+direction;
     if(index<0||next<0||next>=sorted.length)return;
     [sorted[index].sort,sorted[next].sort]=[sorted[next].sort,sorted[index].sort];
-    state.categories=sorted;save();renderCategoryManager();refresh();
-  }
-  function openCategoryModal() {
-    $("categoryDeletePanel").hidden=true;
-    resetCategoryForm();
-    renderCategoryManager();
-    $("categoryModal").hidden=false;
-  }
-  function closeCategoryModal() { $("categoryModal").hidden=true; }
-  function resetCategoryForm() {
-    $("categoryForm").reset(); $("categoryId").value="";
-    $("categoryColor").value="blue"; $("saveCategoryBtn").textContent="添加分类";
-  }
-  function renderCategoryManager() {
-    const sorted=[...state.categories].sort((a,b)=>a.sort-b.sort);
-    $("categoryManagerList").innerHTML=sorted.map((c,i)=>{
-      const count=state.records.filter(r=>r.categoryId===c.id).length;
-      return `<div class="category-manager-row">
-        <div class="category-manager-main"><span class="category-tag ${escapeHTML(c.color||"gray")}">${escapeHTML(c.name)}</span><span class="category-manager-meta">${count} 条记录</span></div>
-        <div class="category-manager-actions">
-          <button class="text-action" data-cat-up="${escapeHTML(c.id)}" ${i===0?"disabled":""} title="上移">↑</button>
-          <button class="text-action" data-cat-down="${escapeHTML(c.id)}" ${i===sorted.length-1?"disabled":""} title="下移">↓</button>
-          <button class="text-action" data-cat-edit="${escapeHTML(c.id)}">编辑</button>
-          <button class="text-action" data-cat-delete="${escapeHTML(c.id)}">删除</button>
-        </div>
-      </div>`;
-    }).join("");
-  }
-  function saveCategory(e) {
-    e.preventDefault();
-    const name=$("categoryName").value.trim(), color=$("categoryColor").value, id=$("categoryId").value;
-    if(!name){$("categoryName").focus();return;}
-    if(state.categories.some(c=>c.name.toLowerCase()===name.toLowerCase()&&c.id!==id)){showToast("分类名称已存在");return;}
-    if(id) {
-      state.categories=state.categories.map(c=>c.id===id?{...c,name,color}:c);
-      showToast("分类已更新");
-    } else {
-      state.categories.push({id:`cat_${Date.now()}_${Math.random().toString(16).slice(2,6)}`,name,color,sort:Math.max(0,...state.categories.map(c=>c.sort||0))+1});
-      showToast("分类已添加");
-    }
-    save(); resetCategoryForm(); renderCategoryManager(); refresh();
-  }
-  function requestDeleteCategory(id) {
-    const category=state.categories.find(c=>c.id===id); if(!category)return;
-    if(state.categories.length<=1){showToast("至少需要保留一个工作分类");return;}
-    const count=state.records.filter(r=>r.categoryId===id).length;
-    if(!count) {
-      if(confirm(`确定删除分类「${category.name}」吗？`)) {
-        state.categories=state.categories.filter(c=>c.id!==id); save();renderCategoryManager();refresh();showToast("分类已删除");
-      }
-      return;
-    }
-    state.deletingCategoryId=id;
-    $("categoryDeleteMessage").textContent=`「${category.name}」目前被 ${count} 条工作记录使用。请选择目标分类，系统会先转移这些记录，再删除原分类。`;
-    $("replacementCategory").innerHTML=state.categories.filter(c=>c.id!==id).map(c=>`<option value="${escapeHTML(c.id)}">${escapeHTML(c.name)}</option>`).join("");
-    $("categoryDeletePanel").hidden=false;
-  }
-  function confirmDeleteCategory() {
-    const id=state.deletingCategoryId, target=$("replacementCategory").value;
-    if(!id||!target)return;
-    state.records=state.records.map(r=>r.categoryId===id?{...r,categoryId:target}:r);
-    state.categories=state.categories.filter(c=>c.id!==id);
-    state.deletingCategoryId=null;save();$("categoryDeletePanel").hidden=true;
-    renderCategoryManager();refresh();showToast("记录已转移，分类已删除");
-  }
-  function moveCategory(id, direction) {
-    const sorted=[...state.categories].sort((a,b)=>a.sort-b.sort), index=sorted.findIndex(c=>c.id===id), next=index+direction;
-    if(index<0||next<0||next>=sorted.length)return;
-    [sorted[index].sort,sorted[next].sort]=[sorted[next].sort,sorted[index].sort];
-    state.categories=sorted;save();renderCategoryManager();refresh();
+    state.categories=sorted;const persisted=await save();renderCategoryManager();refresh();if(!persisted)showToast("分类排序未保存");
   }
   function openModal(record=null) {
     $("recordForm").reset(); $("recordId").value=record?.id||"";
@@ -301,7 +309,7 @@
     $("linkRows").appendChild(row);
   }
   function closeModal() { $("recordModal").hidden=true; }
-  function saveRecord(e) {
+  async function saveRecord(e) {
     e.preventDefault();
     const title=$("recordTitle").value.trim(); if(!title){$("recordTitle").focus();return;}
     const links=[...$("linkRows").querySelectorAll(".link-row")].map(row=>({name:row.querySelector(".link-name").value.trim(),url:row.querySelector(".link-url").value.trim()})).filter(l=>l.url);
@@ -310,37 +318,86 @@
     const old=state.records.find(r=>r.id===id);
     const item={id,title,categoryId:$("recordCategory").value,date:$("recordDate").value,notes:$("recordNotes").value.trim(),links,createdAt:old?.createdAt||new Date().toISOString()};
     if(old)state.records=state.records.map(r=>r.id===id?item:r); else state.records.push(item);
-    const persisted=save();
-    if(!persisted){showToast("保存失败：请立即导出 JSON，刷新后数据会丢失");refresh();return;}
-    closeModal();
+    const persisted = await save(); if(persisted)closeModal();
     if(item.date){const d=new Date(`${item.date}T12:00:00`);state.year=sundayWeekYear(d);state.week=getSundayWeek(d);}
-    refresh(); showToast(old?"工作记录已更新":"工作记录已添加");
+    refresh(); showToast(persisted?(old?"工作记录已更新":"工作记录已添加"):"记录仅在本页内存中，请立即导出 JSON 备份");
   }
   function exportData() {
     const blob=new Blob([Storage.exportJSON(state.records,state.categories,new Date().toISOString())],{type:"application/json"});
     const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`weekly-worklog-${dateISO(today)}.json`;a.click();URL.revokeObjectURL(url);showToast("数据导出已开始");
   }
   function importData(file) {
-    const reader=new FileReader(); reader.onload=()=>{
+    const reader=new FileReader(); reader.onload=async()=>{
       try {
         const data=Storage.parseImport(reader.result);
         if(!confirm(`即将导入 ${data.records.length} 条记录及其工作分类。导入会替换当前浏览器中的全部数据，建议先导出备份。是否继续？`))return;
         state.records=data.records; state.categories=data.categories && data.categories.length ? data.categories : DEFAULT_CATEGORIES.map(c=>({...c}));
-        migrateLegacyCategories();const persisted=save();refresh();showToast(persisted?"数据已导入并保存":"导入内容未能持久保存，请立即导出 JSON 备份");
+        migrateLegacyCategories();const persisted=await save();refresh();showToast(persisted?"数据导入成功":"导入已载入内存，但保存失败：请立即导出 JSON");
       } catch(e) { showToast("文件格式不正确，无法导入"); }
     };reader.readAsText(file);
   }
-function reportYearOptions(){const years=new Set([state.year,...state.records.map(r=>{try{return recordWeek(r).year}catch{return state.year}})]);$("reportYear").innerHTML=[...years].sort((a,b)=>b-a).map(y=>`<option value="${y}">${y} 年</option>`).join("");$("reportYear").value=String(state.year);reportWeekOptions();}
-function reportWeekOptions(){const y=Number($("reportYear").value),max=weeksInYear(y),old=Number($("reportWeek").value)||state.week;$("reportWeek").innerHTML=Array.from({length:max},(_,i)=>`<option value="${i+1}">第 ${i+1} 周</option>`).join("");$("reportWeek").value=String(Math.min(old,max));const weekly=$("reportScope").value==="week";$("reportWeekWrap").hidden=!weekly;const rec=window.WorklogReport.recordsForPeriod(state.records,y,weekly?Number($("reportWeek").value):null);$("reportInfo").textContent=`当前范围包含 ${rec.length} 条工作记录。HTML 文件可离线查看。`;}
-function reportPayload(){return {records:state.records,categories:state.categories,year:Number($("reportYear").value),week:$("reportScope").value==="week"?Number($("reportWeek").value):null};}
-function reportBlob(){const p=reportPayload();return {file:`Weekly-Worklog-${p.year}${p.week===null?"":`-W${String(p.week).padStart(2,"0")}`}.html`,blob:new Blob([window.WorklogReport.buildHtml(p)],{type:"text/html;charset=utf-8"})};}
-function previewReport(){const {blob}=reportBlob(),url=URL.createObjectURL(blob),w=window.open(url,"_blank","noopener,noreferrer");if(!w)showToast("预览窗口被拦截，可下载 HTML 查看");setTimeout(()=>URL.revokeObjectURL(url),60000);}
-function downloadReport(){const {file,blob}=reportBlob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);showToast("HTML 报告已生成");}
+
+  // The report generator reads the same records as the current workbench.
+  // Future PHP+SQLite integration can replace only this data source.
+  function reportOptions() {
+    const selectedYear=Number($("reportYear").value)||state.year;
+    const years=new Set([state.year,...state.records.map(r=>recordWeek(r).year)]);
+    $("reportYear").innerHTML=[...years].sort((a,b)=>b-a).map(y=>`<option value="${y}">${y} 年</option>`).join("");
+    $("reportYear").value=String([...years].includes(selectedYear)?selectedYear:state.year);
+    updateReportWeeks();
+  }
+  function updateReportWeeks() {
+    const year=Number($("reportYear").value);
+    const max=weeksInYear(year);
+    const old=Number($("reportWeek").value)||state.week;
+    $("reportWeek").innerHTML=Array.from({length:max},(_,i)=>`<option value="${i+1}">第 ${i+1} 周</option>`).join("");
+    $("reportWeek").value=String(Math.min(Math.max(old,1),max));
+    const isWeek=$("reportScope").value==="week";
+    $("reportWeekWrap").hidden=!isWeek;
+    const records=window.WorklogReport.recordsForPeriod(state.records,year,isWeek?Number($("reportWeek").value):null);
+    $("reportInfo").textContent=`当前范围包含 ${records.length} 条工作记录、${records.reduce((n,r)=>n+(r.links||[]).length,0)} 个资料链接；HTML 文件内嵌 CSS，不依赖后台服务。`;
+  }
+  function openReportModal() {
+    $("reportScope").value="year";
+    reportOptions();
+    $("reportModal").hidden=false;
+    closeSidebar();
+  }
+  function closeReportModal() { $("reportModal").hidden=true; }
+  function reportPayload() {
+    const year=Number($("reportYear").value);
+    const week=$("reportScope").value==="week"?Number($("reportWeek").value):null;
+    return {records:state.records,categories:state.categories,year,week};
+  }
+  function reportFileName(payload) {
+    return `Weekly-Worklog-${payload.year}${payload.week==null?"":`-W${String(payload.week).padStart(2,"0")}`}.html`;
+  }
+  function getReportBlob() {
+    const payload=reportPayload();
+    return {name:reportFileName(payload),blob:new Blob([window.WorklogReport.buildHtml(payload)],{type:"text/html;charset=utf-8"})};
+  }
+  function previewReport() {
+    const {blob}=getReportBlob();
+    const url=URL.createObjectURL(blob);
+    const win=window.open(url,"_blank","noopener,noreferrer");
+    if(!win)showToast("浏览器阻止了预览窗口，请允许弹窗或下载 HTML 查看");
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+  function downloadReport() {
+    const {name,blob}=getReportBlob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=name;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    showToast("HTML 报告已生成");
+  }
   function bind() {
-    $("openReport").addEventListener("click",()=>{reportYearOptions();$("reportScope").value="year";reportWeekOptions();$("reportModal").hidden=false;closeSidebar();});
-    $("closeReportModal").addEventListener("click",()=>{$("reportModal").hidden=true;});
-    $("reportModal").addEventListener("click",e=>{if(e.target===$("reportModal"))$("reportModal").hidden=true;});
-    ["reportScope","reportYear","reportWeek"].forEach(id=>$(id).addEventListener("change",reportWeekOptions));
+    $("openReport").addEventListener("click",openReportModal);
+    $("closeReportModal").addEventListener("click",closeReportModal);
+    $("reportModal").addEventListener("click",e=>{if(e.target===$("reportModal"))closeReportModal();});
+    $("reportScope").addEventListener("change",updateReportWeeks);
+    $("reportYear").addEventListener("change",updateReportWeeks);
+    $("reportWeek").addEventListener("change",updateReportWeeks);
     $("reportPreview").addEventListener("click",previewReport);
     $("reportDownload").addEventListener("click",downloadReport);
     $("prevWeek").addEventListener("click",()=>changeWeek(-1)); $("nextWeek").addEventListener("click",()=>changeWeek(1));
@@ -369,14 +426,15 @@ function downloadReport(){const {file,blob}=reportBlob(),url=URL.createObjectURL
     ["recordsBody","recordCards"].forEach(containerId=>$(containerId).addEventListener("click",e=>{
       const edit=e.target.closest("[data-edit]"), del=e.target.closest("[data-delete]");
       if(edit){const r=state.records.find(x=>x.id===edit.dataset.edit);if(r)openModal(r);}
-      if(del){const r=state.records.find(x=>x.id===del.dataset.delete);if(r&&confirm(`确定删除「${r.title}」吗？`)){state.records=state.records.filter(x=>x.id!==r.id);const persisted=save();refresh();showToast(persisted?"记录已删除":"删除未能保存，刷新后记录会恢复");}}
+      if(del){const r=state.records.find(x=>x.id===del.dataset.delete);if(r&&confirm(`确定删除「${r.title}」吗？`)){state.records=state.records.filter(x=>x.id!==r.id);save().then(ok=>{refresh();showToast(ok?"记录已删除":"删除未保存，请备份 JSON");});}}
     }));
     $("navWeekly").addEventListener("click",()=>{setView("weekly");closeSidebar();});$("navYear").addEventListener("click",()=>{setView("year");renderYear();closeSidebar();});
     $("yearWeekGrid").addEventListener("click",e=>{const tile=e.target.closest("[data-week]");if(tile){state.week=Number(tile.dataset.week);setView("weekly");refresh();closeSidebar();}});
     $("exportBtn").addEventListener("click",()=>{exportData();closeSidebar();});$("importInput").addEventListener("change",e=>{if(e.target.files[0])importData(e.target.files[0]);e.target.value="";closeSidebar();});
     $("closeSidebar").addEventListener("click",closeSidebar);
     $("sidebarOverlay").addEventListener("click",closeSidebar);
-    document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeSidebar();closeModal();closeCategoryModal();$("reportModal").hidden=true;closeCategoryModal();}});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeSidebar();closeModal();closeCategoryModal();closeReportModal();}});
+    $("dismissSaveNotice").addEventListener("click",()=>{$("storageWarning").hidden=true;});
     $("mobileMenu").addEventListener("click",openSidebar);
   }
   function openSidebar(){$("sidebar").classList.add("open");$("sidebarOverlay").classList.add("visible");document.body.classList.add("menu-open");}
