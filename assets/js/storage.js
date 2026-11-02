@@ -4,14 +4,14 @@
   function read(storage) {
     try {
       const raw = storage.getItem(STORAGE_KEY);
-      if (!raw) return { records: [], categories: null };
+      if (!raw) return { records: [], categories: null, exists: false };
       const data = JSON.parse(raw);
       if (!data || !Array.isArray(data.records)) throw new Error("Invalid stored data");
-      return { records: data.records, categories: Array.isArray(data.categories) ? data.categories : null };
+      return { records: data.records, categories: Array.isArray(data.categories) ? data.categories : null, exists: true };
     } catch (error) { return { records: [], categories: null, error }; }
   }
   function save(storage, records, categories) {
-    storage.setItem(STORAGE_KEY, JSON.stringify({ records, categories }));
+    try { storage.setItem(STORAGE_KEY, JSON.stringify({ records, categories })); return {ok:true}; } catch(error) { return {ok:false,error}; }
   }
   function parseImport(text) {
     const data = JSON.parse(text);

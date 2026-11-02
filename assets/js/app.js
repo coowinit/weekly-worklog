@@ -31,8 +31,7 @@
     state.categories = saved.categories && saved.categories.length ? saved.categories : DEFAULT_CATEGORIES.map(c=>({...c}));
     migrateLegacyCategories();
     if (saved.error) console.warn("读取本地数据失败", saved.error);
-    if (!localStorage.getItem(Storage.STORAGE_KEY)) seedDemo();
-    else save();
+    if (!saved.exists && !saved.error) seedDemo();
   }
   function seedDemo() {
     const demoWeek = {year:state.year,week:state.week};
@@ -46,7 +45,7 @@
     state.records = samples.map((r,i)=>({...r,id:`demo-${i+1}`,createdAt:new Date(`${r.date}T12:00:00`).toISOString()}));
     save();
   }
-  function save() { Storage.save(localStorage, state.records, state.categories); }
+  function save() { const result=Storage.save(localStorage,state.records,state.categories); if(!result.ok){ console.warn("Weekly Worklog 本地存储写入失败",result.error);$("storageWarning").hidden=false;$("storageStatusText").textContent="保存失败，请导出备份"; return false;} $("storageWarning").hidden=true;$("storageStatusText").textContent="数据保存在当前浏览器";return true; }
   function migrateLegacyCategories() {
     state.categories = state.categories.map((c,i)=>({...c,id:c.id||`cat_${i+1}`,sort:Number(c.sort)||i+1,color:c.color||"gray"}));
     state.records = state.records.map(r=>{
@@ -329,7 +328,19 @@
       } catch(e) { showToast("文件格式不正确，无法导入"); }
     };reader.readAsText(file);
   }
+function reportYearOptions(){const years=new Set([state.year,...state.records.map(r=>{try{return recordWeek(r).year}catch{return state.year}})]);$("reportYear").innerHTML=[...years].sort((a,b)=>b-a).map(y=>`<option value="${y}">${y} 年</option>`).join("");$("reportYear").value=String(state.year);reportWeekOptions();}
+function reportWeekOptions(){const y=Number($("reportYear").value),max=weeksInYear(y),old=Number($("reportWeek").value)||state.week;$("reportWeek").innerHTML=Array.from({length:max},(_,i)=>`<option value="${i+1}">第 ${i+1} 周</option>`).join("");$("reportWeek").value=String(Math.min(old,max));const weekly=$("reportScope").value==="week";$("reportWeekWrap").hidden=!weekly;const rec=window.WorklogReport.recordsForPeriod(state.records,y,weekly?Number($("reportWeek").value):null);$("reportInfo").textContent=`当前范围包含 ${rec.length} 条工作记录。HTML 文件可离线查看。`;}
+function reportPayload(){return {records:state.records,categories:state.categories,year:Number($("reportYear").value),week:$("reportScope").value==="week"?Number($("reportWeek").value):null};}
+function reportBlob(){const p=reportPayload();return {file:`Weekly-Worklog-${p.year}${p.week===null?"":`-W${String(p.week).padStart(2,"0")}`}.html`,blob:new Blob([window.WorklogReport.buildHtml(p)],{type:"text/html;charset=utf-8"})};}
+function previewReport(){const {blob}=reportBlob(),url=URL.createObjectURL(blob),w=window.open(url,"_blank","noopener,noreferrer");if(!w)showToast("预览窗口被拦截，可下载 HTML 查看");setTimeout(()=>URL.revokeObjectURL(url),60000);}
+function downloadReport(){const {file,blob}=reportBlob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);showToast("HTML 报告已生成");}
   function bind() {
+    $("openReport").addEventListener("click",()=>{reportYearOptions();$("reportScope").value="year";reportWeekOptions();$("reportModal").hidden=false;closeSidebar();});
+    $("closeReportModal").addEventListener("click",()=>{$("reportModal").hidden=true;});
+    $("reportModal").addEventListener("click",e=>{if(e.target===$("reportModal"))$("reportModal").hidden=true;});
+    ["reportScope","reportYear","reportWeek"].forEach(id=>$(id).addEventListener("change",reportWeekOptions));
+    $("reportPreview").addEventListener("click",previewReport);
+    $("reportDownload").addEventListener("click",downloadReport);
     $("prevWeek").addEventListener("click",()=>changeWeek(-1)); $("nextWeek").addEventListener("click",()=>changeWeek(1));
     $("goCurrentWeek").addEventListener("click",()=>{state.year=sundayWeekYear(today);state.week=getSundayWeek(today);refresh();});
     ["yearSelect","yearSelect2"].forEach(id=>$(id).addEventListener("change",e=>{state.year=Number(e.target.value);state.week=Math.min(state.week,weeksInYear(state.year));refresh();}));
@@ -363,7 +374,7 @@
     $("exportBtn").addEventListener("click",()=>{exportData();closeSidebar();});$("importInput").addEventListener("change",e=>{if(e.target.files[0])importData(e.target.files[0]);e.target.value="";closeSidebar();});
     $("closeSidebar").addEventListener("click",closeSidebar);
     $("sidebarOverlay").addEventListener("click",closeSidebar);
-    document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeSidebar();closeModal();closeCategoryModal();closeCategoryModal();}});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeSidebar();closeModal();closeCategoryModal();$("reportModal").hidden=true;closeCategoryModal();}});
     $("mobileMenu").addEventListener("click",openSidebar);
   }
   function openSidebar(){$("sidebar").classList.add("open");$("sidebarOverlay").classList.add("visible");document.body.classList.add("menu-open");}

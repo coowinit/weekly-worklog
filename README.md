@@ -130,3 +130,12 @@ v1.0.0 的目标是保持轻量、稳定，先作为本地浏览器工具使用�
 ## 版本
 
 当前正式版本：**v1.0.0**。版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+
+
+## 开发分支：HTML 工作报告（尚未发布）
+
+在 `feature/html-report-export` 分支新增“工作报告”菜单，可按年度或指定周预览和下载独立 HTML 报告。报告含周次导航、记录明细、资料链接、A4 打印样式。仍使用 LocalStorage，尚未接入 PHP + SQLite。
+
+此分支的 LocalStorage 配额不足情况可提示和捕获，但**不代表底层存储配额已解决**；真实数据请定期导出 JSON。确认保存持久化后再考虑合并或发布。
+
+测试：`node tests/report.test.js`。
