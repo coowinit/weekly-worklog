@@ -32,12 +32,12 @@
       </div>
     </aside>
 
-    <main class="main"><div id="storageWarning" class="storage-warning" role="alert" hidden>浏览器本地保存失败：请立即导出 JSON 备份。不要仅依赖本地存储。</div>
+    <main class="main"><div id="storageWarning" class="save-notice" role="alert" hidden><span class="save-notice-icon" aria-hidden="true">!</span><div class="save-notice-copy"><strong id="saveNoticeTitle">数据保存失败</strong><span id="saveNoticeDetail">请检查数据库连接或保存状态。</span></div><button type="button" class="save-notice-dismiss" id="dismissSaveNotice" aria-label="关闭提示">×</button></div>
       <header class="topbar">
         <button class="mobile-menu" id="mobileMenu" aria-label="打开菜单">☰</button>
         <div class="breadcrumb">工作空间 <span>/</span> <strong id="breadcrumbCurrent">周度工作台</strong></div>
         <div class="top-actions">
-          <span class="local-indicator"><i></i> 自动保存在本机</span>
+          <span class="local-indicator"><i></i> <span id="localSaveIndicator">自动保存在本机</span></span>
           <button class="btn btn-primary" id="addRecordTop"><span>＋</span> 新增记录</button>
         </div>
       </header>
@@ -61,8 +61,8 @@
             <div class="week-title-row">
               <button class="icon-btn" id="prevWeek" aria-label="上一周">←</button>
               <div>
-                <h2 id="weekTitle">第 40 周</h2>
-                <div class="week-range" id="weekRange">2026 年 9 月 28 日 — 10 月 4 日</div>
+                <h2 id="weekTitle">正在加载周次…</h2>
+                <div class="week-range" id="weekRange">正在计算日期范围…</div>
               </div>
               <button class="icon-btn" id="nextWeek" aria-label="下一周">→</button>
               <button class="btn btn-soft" id="goCurrentWeek">返回本周</button>
