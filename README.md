@@ -1,6 +1,6 @@
 # Weekly Worklog｜周度工作档案
 
-**当前版本：** `v1.0.0`  
+**当前版本：** `v1.1.0`  
 **项目定位：** 一款轻量、中文优先、以周为单位整理工作记录的浏览器工具。
 
 Weekly Worklog 用于记录每周完成的工作，并保存相关备注和云文档链接。它不是日程表或复杂的项目管理系统，重点是让工作成果能够按周长期积累、查找和回顾。
@@ -19,14 +19,14 @@ Weekly Worklog 用于记录每周完成的工作，并保存相关备注和云�
 
 ## 快速开始
 
-无需安装依赖、无需构建，也无需启动服务器。
+无需构建和第三方依赖。**推荐通过 VS Code Live Server 或 XAMPP 本地 HTTP 服务访问，而不是直接双击 HTML 使用 `file://`。**
 
 1. 下载或克隆本仓库。
-2. 解压后直接使用浏览器打开 `index.html`。
+2. 在 VS Code 打开项目，右键 `index.html` 选择 **Open with Live Server**，通过 `http://127.0.0.1:5500/` 访问。
 3. 首次打开会载入演示记录，可编辑或删除。
 4. 开始录入真实工作记录前，建议先了解下方的数据保存说明。
 
-也可以将整个目录放入 XAMPP 的 `htdocs`，通过本地地址访问。
+也可以将整个目录放入 XAMPP 的 `htdocs`，通过 `http://localhost/weekly-worklog/` 访问。不同地址拥有不同的 LocalStorage，切换环境前请先导出 JSON 备份。
 
 ## 项目结构
 
@@ -42,10 +42,12 @@ weekly-worklog/
 │   └── js/
 │       ├── calendar.js
 │       ├── storage.js
+│       ├── report.js
 │       └── app.js
 └── tests/
     ├── calendar.test.js
-    └── storage.test.js
+    ├── storage.test.js
+    └── report.test.js
 ```
 
 | 文件 | 职责 |
@@ -55,6 +57,7 @@ weekly-worklog/
 | `assets/js/calendar.js` | 周历日期、周次和跨年计算 |
 | `assets/js/storage.js` | LocalStorage 与 JSON 数据处理 |
 | `assets/js/app.js` | 页面交互、记录和分类管理 |
+| `assets/js/report.js` | 年度/单周 HTML 报告生成（独立单文件） |
 | `tests/` | 周历与数据存储测试 |
 
 ## 周历规则
@@ -99,6 +102,7 @@ weekly-worklog/
 ```bash
 node tests/calendar.test.js
 node tests/storage.test.js
+node tests/report.test.js
 ```
 
 测试覆盖周历跨年边界、52/53 周、1900—2100 年周历计算、周次导航、非法日期，以及 JSON 和本地存储兼容性。
@@ -129,13 +133,17 @@ v1.0.0 的目标是保持轻量、稳定，先作为本地浏览器工具使用�
 
 ## 版本
 
-当前正式版本：**v1.0.0**。版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+当前正式版本：**v1.1.0**。版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 
-## 开发分支：HTML 工作报告（尚未发布）
 
-在 `feature/html-report-export` 分支新增“工作报告”菜单，可按年度或指定周预览和下载独立 HTML 报告。报告含周次导航、记录明细、资料链接、A4 打印样式。仍使用 LocalStorage，尚未接入 PHP + SQLite。
+## v1.1.0：HTML 工作报告
 
-此分支的 LocalStorage 配额不足情况可提示和捕获，但**不代表底层存储配额已解决**；真实数据请定期导出 JSON。确认保存持久化后再考虑合并或发布。
+- 左侧菜单「工作报告」可选择**年度档案**或**指定周**，支持浏览器预览和下载独立 HTML 文件。
+- 年度报告按现有星期日制周历汇总有记录的周次，并提供周次导航、工作明细、分类、备注、资料链接和统计信息。
+- 报告样式内嵌，无需将后台、样式文件或 JavaScript 发给领导；可使用浏览器打印保存为 PDF。
+- LocalStorage 存储配额异常会明确提示**未保存成功**，避免误判；JSON 备份仍然推荐。
+- 经实际测试，通过 VS Code Live Server 本地 HTTP 地址访问时，新增记录刷新后保留，JSON 导入导出与 HTML 报告正常。
+- **注意：** `file://` 访问可能出现存储限制；`http://127.0.0.1:5500`、`http://localhost`、其他端口分别属于不同存储来源。更换访问来源前请导出 JSON。
 
-测试：`node tests/report.test.js`。
+未来 PHP + SQLite 属于单独开发阶段，不包含在 v1.1.0。
