@@ -120,7 +120,7 @@
         </div>
         <div class="year-tip">提示：每周从星期日开始，到星期六结束。第 1 周为包含当年 1 月 1 日的那一周，跨年周归属于包含新年 1 月 1 日的年份。</div>
       </section>
-      <footer class="footer">Weekly Worklog <span>·</span> v2.0.1 <span>·</span> 周度工作档案</footer>
+      <footer class="footer">Weekly Worklog <span>·</span> v2.0.2 <span>·</span> 周度工作档案</footer>
     </main>
   </div>
 
