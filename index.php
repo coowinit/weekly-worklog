@@ -40,17 +40,23 @@ if(empty($_SESSION['worklog_auth'])){
 }
 try {$snapshot=snapshot(database());}catch(Throwable $e){http_response_code(503);echo '<meta charset="utf-8">数据库不可用：'.htmlspecialchars($e->getMessage(),ENT_QUOTES,'UTF-8');exit;}
 $csrf=$_SESSION['worklog_csrf']??=bin2hex(random_bytes(32));
-$html=file_get_contents(__DIR__.'/index.html');
+$templatePath=__DIR__.'/app/workbench-template.php';
+$html=@file_get_contents($templatePath);
+if($html===false || !str_contains($html,'<script src="assets/js/app.js"></script>') || !str_contains($html,'<!-- SERVER_TOOLS -->')){
+    http_response_code(503);
+    error_log('Weekly Worklog: required internal workbench template is missing or incomplete');
+    exit('工作台模板缺失或不完整，请检查部署文件');
+}
 $html=str_replace('<script src="assets/js/app.js"></script>', '<script>window.WORKLOG_SERVER='.json_encode(['records'=>$snapshot['records'],'categories'=>$snapshot['categories'],'revision'=>$snapshot['revision'],'csrf'=>$csrf],JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE).';</script><script src="assets/js/app.js"></script>',$html);
 $logoutForm='<form method="post" action="index.php" class="logout-form"><input type="hidden" name="logout" value="1"><input type="hidden" name="csrf" value="'.htmlspecialchars($csrf,ENT_QUOTES,'UTF-8').'"><button type="submit" class="side-link"><span class="nav-icon">⇥</span>退出登录</button></form>';
 $html=str_replace('<!-- SERVER_TOOLS -->','<a class="side-link" href="backup.php"><span class="nav-icon">⇩</span>备份 SQLite 数据库</a>'.$logoutForm,$html);
 // Add cache-busting query strings to the PHP-rendered entry only.
 // A stale static app.js otherwise attempts to write to browser LocalStorage.
-$html=str_replace('assets/js/app.js"','assets/js/app.js?v=2.0.0"',$html);
-$html=str_replace('assets/js/storage.js"','assets/js/storage.js?v=2.0.0"',$html);
-$html=str_replace('assets/css/style.css"','assets/css/style.css?v=2.0.0"',$html);
-$html=str_replace('assets/js/report.js"','assets/js/report.js?v=2.0.0"',$html);
-$html=str_replace('assets/js/calendar.js"','assets/js/calendar.js?v=2.0.0"',$html);
+$html=str_replace('assets/js/app.js"','assets/js/app.js?v=2.0.1"',$html);
+$html=str_replace('assets/js/storage.js"','assets/js/storage.js?v=2.0.1"',$html);
+$html=str_replace('assets/css/style.css"','assets/css/style.css?v=2.0.1"',$html);
+$html=str_replace('assets/js/report.js"','assets/js/report.js?v=2.0.1"',$html);
+$html=str_replace('assets/js/calendar.js"','assets/js/calendar.js?v=2.0.1"',$html);
 $html=str_replace('本地演示模式','SQLite 动态模式',$html);
 $html=str_replace('数据保存在当前浏览器','数据已连接至 SQLite',$html);
 $html=str_replace('自动保存在本机','自动保存在数据库',$html);
