@@ -26,7 +26,7 @@
     return { records: data.records, categories: Array.isArray(data.categories) ? data.categories : null };
   }
   function exportJSON(records, categories, exportedAt) {
-    return JSON.stringify({ version: "2.0.0", exportedAt: exportedAt || new Date().toISOString(), records, categories }, null, 2);
+    return JSON.stringify({ version: "2.0.1", exportedAt: exportedAt || new Date().toISOString(), records, categories }, null, 2);
   }
   const api = { STORAGE_KEY, read, save, parseImport, exportJSON };
   root.WorklogStorage = api;
