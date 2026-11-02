@@ -1,13 +1,13 @@
 # Weekly Worklog · PHP + SQLite 部署与升级指南
 
-> v2.0.0 安装与维护文档。公网访问仍需 HTTPS、独立强密码、数据库置于 Web 公开目录之外，以及服务器层的访问限制和登录限流。
+> v2.0.1 安装与维护文档。公网访问仍需 HTTPS、独立强密码、数据库置于 Web 公开目录之外，以及服务器层的访问限制和登录限流。
 
 ## Windows XAMPP 测试
 
 1. 将 `weekly-worklog` 整个目录复制到 `C:\\xampp\\htdocs\\weekly-worklog`（Windows 实际路径按你的安装情况调整）。
 2. 在 XAMPP `php.ini` 中启用 `extension=pdo_sqlite`、`extension=sqlite3`，重启 Apache；确保扩展正确加载。
 3. 把 `config.example.php` 复制为 `config.local.php`，修改 `password` 为至少 12 位的私人密码。
-4. 浏览器访问 `http://localhost/weekly-worklog/index.php`（必须访问 PHP 入口，而不是直接打开 `index.html`）。
+4. 浏览器访问 `http://localhost/weekly-worklog/index.php`（必须访问 PHP 入口，工作台模板不需要直接打开）。
 5. 登录后会创建 SQLite 数据库，初始没有工作记录。点击“导入数据”，选择旧版导出的 JSON，并确认导入。
 6. 新增记录、刷新验证持久保存；再测试分类管理和年度 HTML 导出。
 
@@ -44,7 +44,7 @@
 - 项目维护方已在目标环境完成新增、编辑、JSON 导入与 HTML 报告的手工测试；但自动化的 PHP + SQLite 端到端测试尚未提供，仍需在每个部署环境单独验证。
 - PHP 本地版没有接入 WordPress，也不涉及账号注册、云同步或多用户权限。
 - `file://` / VS Code Live Server 无法执行 PHP。请务必通过 XAMPP 的 Apache 访问 `index.php`。
-- `index.html` 保留作为静态页面参考，不能作为 SQLite 动态入口。
+- `app/workbench-template.php` 是由 `index.php` 加载的内部 HTML 模板，不能作为公开入口；`app/.htaccess` 在 Apache 下禁止直接访问。
 
 
 ## SQLite 保存故障排查与顶部状态优化（2026-11-02）
@@ -74,6 +74,14 @@
 ## GitHub 发布前注意事项
 
 - 不得提交 `config.local.php`、SQLite 数据库、导出的 JSON 或公司内部工作记录。
-- PHP 版本使用 `index.php`，`index.html` 仅作为静态参考。
-- 如果只希望公开 PHP 动态版代码，不要启用指向 `index.html` 的公开预览链接。
+- PHP 版本使用 `index.php`，内部模板为 `app/workbench-template.php`；不再包含 `index.html`。
+- 不要配置公开静态 HTML 预览链接；应通过 `index.php` 登录访问工作台。
 - 本版新增会话级登录失败次数限制，但该限制不能代替服务器级防暴力破解措施。
+
+## v2.0.1 模板修复
+
+- 恢复 v1.1.0 的工作台 HTML 结构至 `app/workbench-template.php`，**不是**恢复 `index.html` 公开入口。
+- 在内部模板中补齐 `<!-- SERVER_TOOLS -->` 占位符，以便 `index.php` 注入 SQLite 数据库备份与退出登录操作。
+- `index.php` 读取内部模板并校验必要标记，缺失时返回服务不可用，而不是显示空白页面。
+- 更新静态资源的版本参数，避免浏览器继续使用旧脚本。
+- 升级只替换代码文件；**不要覆盖 `config.local.php` 或现有 SQLite 数据库**。升级后验证登录、工作台、记录保存、SQLite 备份、退出登录和 HTML 报告。
