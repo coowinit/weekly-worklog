@@ -1,6 +1,6 @@
 # Weekly Worklog — 周度工作记录平台
 
-**版本：v2.0.0（PHP + SQLite）**
+**版本：v2.0.1（PHP + SQLite）**
 
 基于原生 HTML、CSS、JavaScript、PHP 和 SQLite 的轻量单用户工作记录平台。按**周**整理工作成果、分类、备注和资料链接；可按**年度或单周**导出独立 HTML 报告。项目不引入大型框架，也不把周记录扩展成项目管理系统。
 
@@ -19,7 +19,7 @@
 1. 确保 PHP 支持 **PDO SQLite**，Apache 或其他 PHP Web 服务器可正常运行；推荐先在 Windows XAMPP 测试。
 2. 将仓库复制到 `htdocs/weekly-worklog/`（或网站对应目录）。
 3. 复制 `config.example.php` 为 **`config.local.php`**，设置至少 12 位的独立管理密码，并**确认数据库路径位于 Web 文档根目录之外**。
-4. 使用 `http://localhost/weekly-worklog/index.php` 登录。**不要**双击 `index.html` 或用 VS Code Live Server 运行 PHP 动态版。
+4. 使用 `http://localhost/weekly-worklog/index.php` 登录。**不要**双击 HTML 文件或用 VS Code Live Server 运行 PHP 动态版。
 5. 登录后数据库自动建表（首次为空）；若有 v1.x 旧数据，请先用 JSON 备份再通过“导入数据”迁移。
 6. 新增一条测试记录、刷新、编辑、删除、再次刷新；验证 JSON 和 HTML 报告以及 SQLite 备份。
 
@@ -30,7 +30,7 @@
 ```text
 weekly-worklog/
 ├── index.php             # PHP 登录与动态页面入口
-├── index.html            # 前端模板 / 静态参考（非数据库入口）
+├── app/workbench-template.php # 仅由 index.php 读取的内部工作台模板
 ├── api.php               # 登录后的 JSON API
 ├── backup.php            # 登录后的 SQLite 备份下载
 ├── app/core.php          # 配置、建表、校验、事务和快照
@@ -71,5 +71,6 @@ node tests/report.test.js
 - **v1.0.0**：本地浏览器工作记录。
 - **v1.1.0**：年度/单周 HTML 报告。
 - **v2.0.0**：PHP + SQLite 单用户动态平台、数据库备份及安全登录。
+- **v2.0.1**：修复独立部署时的工作台模板缺失，正式入口继续使用 `index.php`。
 
 未来以数据可靠性、兼容性、安全性维护为主，不增加复杂的项目管理功能。
