@@ -11,7 +11,14 @@
     } catch (error) { return { records: [], categories: null, error }; }
   }
   function save(storage, records, categories) {
-    try { storage.setItem(STORAGE_KEY, JSON.stringify({ records, categories })); return {ok:true}; } catch(error) { return {ok:false,error}; }
+    try {
+      storage.setItem(STORAGE_KEY, JSON.stringify({ records, categories }));
+      return { ok: true };
+    } catch (error) {
+      // Browsers may deny storage entirely (e.g. restricted file:// origins),
+      // or reject large writes with QuotaExceededError.
+      return { ok: false, error };
+    }
   }
   function parseImport(text) {
     const data = JSON.parse(text);
@@ -19,7 +26,7 @@
     return { records: data.records, categories: Array.isArray(data.categories) ? data.categories : null };
   }
   function exportJSON(records, categories, exportedAt) {
-    return JSON.stringify({ version: "1.1.0", exportedAt: exportedAt || new Date().toISOString(), records, categories }, null, 2);
+    return JSON.stringify({ version: "2.0.0", exportedAt: exportedAt || new Date().toISOString(), records, categories }, null, 2);
   }
   const api = { STORAGE_KEY, read, save, parseImport, exportJSON };
   root.WorklogStorage = api;

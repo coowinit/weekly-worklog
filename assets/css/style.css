@@ -147,5 +147,28 @@ body { font-size: 14px; }
   }
 }
 
-/* HTML report development */
-.report-intro{font-size:14px;color:var(--muted);line-height:1.8}.report-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.report-fields select{min-height:42px;padding:9px;border:1px solid #e2e7ee;border-radius:8px;font:inherit}.storage-warning{background:#fff2dc;color:#965b16;padding:12px 22px;font-size:13px}@media(max-width:760px){.report-fields{grid-template-columns:1fr}}
+/* Prototype: independent HTML work report export */
+.report-intro{font-size:14px;line-height:1.8;color:var(--muted);margin:0 0 18px}
+.report-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.report-form .form-field select{min-height:42px}
+.report-info{margin-top:18px;padding:13px 15px;border-radius:9px;background:#f5f8fc;border:1px solid var(--line);color:#5e6e85;font-size:13px;line-height:1.75}
+@media(max-width:760px){.report-form{grid-template-columns:1fr}}
+
+/* Persistence failure notice */
+.storage-warning{position:sticky;top:68px;z-index:19;background:#fff3e9;color:#914b1b;border-bottom:1px solid #f0d2ad;padding:12px 24px;font-size:13px;line-height:1.7}
+@media(max-width:760px){.storage-warning{top:58px;padding:10px 15px}}
+
+/* SQLite backup and session actions */
+.logout-form{margin:0}.logout-form .side-link{font-family:inherit}
+
+/* PHP + SQLite: compact persistent-save status (not a page-wide alert) */
+.main{position:relative}
+.save-notice{position:fixed;top:82px;right:24px;z-index:35;display:flex;align-items:flex-start;gap:11px;max-width:min(460px,calc(100vw - 32px));width:auto;background:#fffaf2;border:1px solid #f0d5a5;border-left:4px solid #d39332;color:#745122;padding:13px 14px;box-shadow:0 12px 28px rgba(25,42,70,.13);border-radius:10px;font-size:13px;line-height:1.6}
+.save-notice[hidden]{display:none!important}
+.save-notice-icon{display:grid;place-items:center;width:23px;height:23px;flex:0 0 23px;border-radius:50%;background:#fff0d2;color:#9b620b;font-weight:700}
+.save-notice-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.save-notice-copy strong{font-size:14px;color:#80541a}
+.save-notice-copy span{font-size:12px;overflow-wrap:anywhere}
+.save-notice-dismiss{border:0;background:transparent;color:#957b57;font-size:20px;cursor:pointer;line-height:1;padding:0 2px;margin-left:auto}
+.topbar{min-height:68px}
+@media(max-width:760px){.save-notice{top:66px;left:12px;right:12px;max-width:none}.topbar{min-height:58px}}
