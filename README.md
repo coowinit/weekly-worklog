@@ -1,6 +1,6 @@
 # Weekly Worklog — 周度工作记录平台
 
-**版本：v2.0.1（PHP + SQLite）**
+**版本：v2.0.2（PHP + SQLite）**
 
 基于原生 HTML、CSS、JavaScript、PHP 和 SQLite 的轻量单用户工作记录平台。按**周**整理工作成果、分类、备注和资料链接；可按**年度或单周**导出独立 HTML 报告。项目不引入大型框架，也不把周记录扩展成项目管理系统。
 
@@ -62,6 +62,7 @@ weekly-worklog/
 node tests/calendar.test.js
 node tests/storage.test.js
 node tests/report.test.js
+node tests/template-contract.test.js
 ```
 
 再使用安装了 `pdo_sqlite` 的 PHP 环境进行实际新增、刷新、导入、备份及恢复验证。Node 测试不能代替 PHP/SQLite 集成测试。
@@ -72,5 +73,6 @@ node tests/report.test.js
 - **v1.1.0**：年度/单周 HTML 报告。
 - **v2.0.0**：PHP + SQLite 单用户动态平台、数据库备份及安全登录。
 - **v2.0.1**：修复独立部署时的工作台模板缺失，正式入口继续使用 `index.php`。
+- **v2.0.2**：修复旧模板与 JS 不匹配导致页面无法初始化、旧周次占位内容残留的问题。
 
 未来以数据可靠性、兼容性、安全性维护为主，不增加复杂的项目管理功能。
