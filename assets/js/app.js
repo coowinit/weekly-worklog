@@ -183,7 +183,7 @@
       state.categories.push({id:`cat_${Date.now()}_${Math.random().toString(16).slice(2,6)}`,name,color,sort:Math.max(0,...state.categories.map(c=>c.sort||0))+1});
       showToast("分类已添加");
     }
-    save(); resetCategoryForm(); renderCategoryManager(); refresh();
+    const persisted=save();resetCategoryForm();renderCategoryManager();refresh();if(!persisted)showToast("分类未能保存，刷新后会丢失");
   }
   function requestDeleteCategory(id) {
     const category=state.categories.find(c=>c.id===id); if(!category)return;
@@ -191,7 +191,7 @@
     const count=state.records.filter(r=>r.categoryId===id).length;
     if(!count) {
       if(confirm(`确定删除分类「${category.name}」吗？`)) {
-        state.categories=state.categories.filter(c=>c.id!==id); save();renderCategoryManager();refresh();showToast("分类已删除");
+        state.categories=state.categories.filter(c=>c.id!==id); const persisted=save();renderCategoryManager();refresh();showToast(persisted?"分类已删除":"分类删除未能保存，刷新后会恢复");
       }
       return;
     }
@@ -205,8 +205,8 @@
     if(!id||!target)return;
     state.records=state.records.map(r=>r.categoryId===id?{...r,categoryId:target}:r);
     state.categories=state.categories.filter(c=>c.id!==id);
-    state.deletingCategoryId=null;save();$("categoryDeletePanel").hidden=true;
-    renderCategoryManager();refresh();showToast("记录已转移，分类已删除");
+    state.deletingCategoryId=null;const persisted=save();$("categoryDeletePanel").hidden=true;
+    renderCategoryManager();refresh();showToast(persisted?"记录已转移，分类已删除":"变更未能保存，刷新后会丢失");
   }
   function moveCategory(id, direction) {
     const sorted=[...state.categories].sort((a,b)=>a.sort-b.sort), index=sorted.findIndex(c=>c.id===id), next=index+direction;
@@ -310,7 +310,9 @@
     const old=state.records.find(r=>r.id===id);
     const item={id,title,categoryId:$("recordCategory").value,date:$("recordDate").value,notes:$("recordNotes").value.trim(),links,createdAt:old?.createdAt||new Date().toISOString()};
     if(old)state.records=state.records.map(r=>r.id===id?item:r); else state.records.push(item);
-    save(); closeModal();
+    const persisted=save();
+    if(!persisted){showToast("保存失败：请立即导出 JSON，刷新后数据会丢失");refresh();return;}
+    closeModal();
     if(item.date){const d=new Date(`${item.date}T12:00:00`);state.year=sundayWeekYear(d);state.week=getSundayWeek(d);}
     refresh(); showToast(old?"工作记录已更新":"工作记录已添加");
   }
@@ -324,7 +326,7 @@
         const data=Storage.parseImport(reader.result);
         if(!confirm(`即将导入 ${data.records.length} 条记录及其工作分类。导入会替换当前浏览器中的全部数据，建议先导出备份。是否继续？`))return;
         state.records=data.records; state.categories=data.categories && data.categories.length ? data.categories : DEFAULT_CATEGORIES.map(c=>({...c}));
-        migrateLegacyCategories();save();refresh();showToast("数据导入成功");
+        migrateLegacyCategories();const persisted=save();refresh();showToast(persisted?"数据已导入并保存":"导入内容未能持久保存，请立即导出 JSON 备份");
       } catch(e) { showToast("文件格式不正确，无法导入"); }
     };reader.readAsText(file);
   }
@@ -367,7 +369,7 @@ function downloadReport(){const {file,blob}=reportBlob(),url=URL.createObjectURL
     ["recordsBody","recordCards"].forEach(containerId=>$(containerId).addEventListener("click",e=>{
       const edit=e.target.closest("[data-edit]"), del=e.target.closest("[data-delete]");
       if(edit){const r=state.records.find(x=>x.id===edit.dataset.edit);if(r)openModal(r);}
-      if(del){const r=state.records.find(x=>x.id===del.dataset.delete);if(r&&confirm(`确定删除「${r.title}」吗？`)){state.records=state.records.filter(x=>x.id!==r.id);save();refresh();showToast("记录已删除");}}
+      if(del){const r=state.records.find(x=>x.id===del.dataset.delete);if(r&&confirm(`确定删除「${r.title}」吗？`)){state.records=state.records.filter(x=>x.id!==r.id);const persisted=save();refresh();showToast(persisted?"记录已删除":"删除未能保存，刷新后记录会恢复");}}
     }));
     $("navWeekly").addEventListener("click",()=>{setView("weekly");closeSidebar();});$("navYear").addEventListener("click",()=>{setView("year");renderYear();closeSidebar();});
     $("yearWeekGrid").addEventListener("click",e=>{const tile=e.target.closest("[data-week]");if(tile){state.week=Number(tile.dataset.week);setView("weekly");refresh();closeSidebar();}});
