@@ -45,6 +45,71 @@ weekly-worklog/
 └── CHANGELOG.md
 ```
 
+## SQLite 数据库保存位置与迁移
+
+本项目使用 **SQLite 文件数据库**，无需单独安装 MySQL/MariaDB 服务。工作记录、工作分类、关联资料链接等数据保存在一个数据库文件 **`weekly-worklog.sqlite`** 中，而不是保存在浏览器或 GitHub 仓库。
+
+### 1. 数据库路径由哪个文件决定？
+
+部署时将 `config.example.php` 复制为根目录的 **`config.local.php`**。真正生效的路径来自 `config.local.php` 中的 `database_path`：
+
+```php
+return [
+    'password' => '请设置你自己的强密码',
+    'database_path' => dirname(__DIR__, 2) . '/weekly-worklog-private/weekly-worklog.sqlite',
+];
+```
+
+这里的 `__DIR__` 是 **`config.local.php` 所在的项目目录**，`dirname(__DIR__, 2)` 表示向上两级目录，再进入 `weekly-worklog-private/`。以上是示例配置；如果你曾自行修改过 `database_path`，请以当前 `config.local.php` 为准。
+
+### 2. 不同环境中的路径示例
+
+**Windows + XAMPP：** 假设项目安装在 `C:\xampp\htdocs\weekly-worklog\`，按示例配置，数据库将保存到：
+
+```text
+C:\xampp\
+├── htdocs\
+│   └── weekly-worklog\
+│       ├── index.php
+│       └── config.local.php
+└── weekly-worklog-private\
+    └── weekly-worklog.sqlite
+```
+
+**SiteGround / Linux 主机：** 假设代码位于 `/home/customer/www/example.com/public_html/222/`，同样按示例配置，路径将解析为：
+
+```text
+/home/customer/www/example.com/
+├── public_html/
+│   └── 222/
+│       ├── index.php
+│       └── config.local.php
+└── weekly-worklog-private/
+    └── weekly-worklog.sqlite
+```
+
+**这只是目录结构示例，不代表服务器的实际路径。** SiteGround 等主机的真实主目录可能不同。请通过主机文件管理器或 SSH 查看 `config.local.php` 的配置与所在位置，并确认数据库目录位于实际 Web 文档根目录（如 `public_html`）之外。不要直接把含有密码的完整配置文件贴到公开渠道。
+
+### 3. 数据库如何创建？如何找到？
+
+- 首次成功登录并使用数据库连接时，程序会根据 `database_path` 创建缺失的目录及数据库，并自动初始化数据表。前提是 PHP 进程对父目录有写入权限。
+- 已经运行过的站点，**不要因为找不到数据库就随意修改路径**；修改后可能创建另一份空数据库，看起来像工作记录丢失。
+- 数据库包含 `categories`（分类）、`records`（工作记录）、`record_links`（资料链接）和 `metadata`（数据修订版本）等表。
+- `storage/.htaccess` 是遗留目录的辅助访问保护，**不能替代将数据库保存在 Web 根目录之外**。不同服务器也不一定支持 Apache 的 `.htaccess`。
+
+### 4. 备份和恢复
+
+| 备份类型 | 用途 | 推荐操作 |
+| --- | --- | --- |
+| **SQLite 快照**（`.sqlite`） | 完整数据库恢复 | 登录工作台后点击「备份 SQLite 数据库」下载；由 SQLite `VACUUM INTO` 生成一致性快照 |
+| **JSON**（`.json`） | 跨版本迁移、记录及分类导入导出 | 点击「导出数据」保存；导入 JSON 会替换当前数据库中的记录与分类 |
+
+建议将备份文件放在**网站目录和 GitHub 仓库之外**，并定期保留多份。
+
+恢复 SQLite 备份时：**先备份现有数据库**，停止或暂停网站写入，确认没有尚未合并的 SQLite WAL 文件，再把一致性备份恢复至 `config.local.php` 指定的路径。不要在程序正在写入时直接覆盖数据库。恢复后重新登录，核对记录、分类和链接数量。
+
+**升级代码不等于迁移数据库**：更新 PHP、CSS、JavaScript、README 时应保留现有 `config.local.php` 和 `weekly-worklog.sqlite`，除非经过备份并明确计划迁移。
+
 ## 数据安全与备份
 
 **注意：本仓库是公开源代码，不应上传任何真实工作记录、密码、数据库或公司内部文件。**
