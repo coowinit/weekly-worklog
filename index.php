@@ -52,11 +52,11 @@ $logoutForm='<form method="post" action="index.php" class="logout-form"><input t
 $html=str_replace('<!-- SERVER_TOOLS -->','<a class="side-link" href="backup.php"><span class="nav-icon">⇩</span>备份 SQLite 数据库</a>'.$logoutForm,$html);
 // Add cache-busting query strings to the PHP-rendered entry only.
 // A stale static app.js otherwise attempts to write to browser LocalStorage.
-$html=str_replace('assets/js/app.js"','assets/js/app.js?v=2.0.1"',$html);
-$html=str_replace('assets/js/storage.js"','assets/js/storage.js?v=2.0.1"',$html);
-$html=str_replace('assets/css/style.css"','assets/css/style.css?v=2.0.1"',$html);
-$html=str_replace('assets/js/report.js"','assets/js/report.js?v=2.0.1"',$html);
-$html=str_replace('assets/js/calendar.js"','assets/js/calendar.js?v=2.0.1"',$html);
+$html=str_replace('assets/js/app.js"','assets/js/app.js?v=2.0.2"',$html);
+$html=str_replace('assets/js/storage.js"','assets/js/storage.js?v=2.0.2"',$html);
+$html=str_replace('assets/css/style.css"','assets/css/style.css?v=2.0.2"',$html);
+$html=str_replace('assets/js/report.js"','assets/js/report.js?v=2.0.2"',$html);
+$html=str_replace('assets/js/calendar.js"','assets/js/calendar.js?v=2.0.2"',$html);
 $html=str_replace('本地演示模式','SQLite 动态模式',$html);
 $html=str_replace('数据保存在当前浏览器','数据已连接至 SQLite',$html);
 $html=str_replace('自动保存在本机','自动保存在数据库',$html);
