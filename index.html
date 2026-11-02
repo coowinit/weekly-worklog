@@ -22,15 +22,16 @@
         <div class="side-label">工作空间</div>
         <button class="side-link active" id="navWeekly"><span class="nav-icon">▦</span>周度工作台</button>
         <button class="side-link" id="navYear"><span class="nav-icon">▤</span>年度周次索引</button>
+        <button class="side-link" id="openReport"><span class="nav-icon">▧</span>工作报告</button>
       </div>
       <div class="side-bottom">
-        <div class="storage-note"><span class="status-dot"></span><span><strong>本地演示模式</strong><small>数据保存在当前浏览器</small></span></div>
+        <div class="storage-note"><span class="status-dot"></span><span><strong>本地演示模式</strong><small id="storageStatusText">数据保存在当前浏览器</small></span></div>
         <button class="side-link" id="exportBtn"><span class="nav-icon">⇩</span>导出数据</button>
         <label class="side-link import-label"><span class="nav-icon">⇧</span>导入数据<input type="file" id="importInput" accept=".json,application/json"></label>
       </div>
     </aside>
 
-    <main class="main">
+    <main class="main"><div id="storageWarning" class="storage-warning" role="alert" hidden>浏览器本地保存失败：请立即导出 JSON 备份。不要仅依赖本地存储。</div>
       <header class="topbar">
         <button class="mobile-menu" id="mobileMenu" aria-label="打开菜单">☰</button>
         <div class="breadcrumb">工作空间 <span>/</span> <strong id="breadcrumbCurrent">周度工作台</strong></div>
@@ -118,7 +119,7 @@
         </div>
         <div class="year-tip">提示：每周从星期日开始，到星期六结束。第 1 周为包含当年 1 月 1 日的那一周，跨年周归属于包含新年 1 月 1 日的年份。</div>
       </section>
-      <footer class="footer">Weekly Worklog <span>·</span> v1.0.0 <span>·</span> 周度工作档案</footer>
+      <footer class="footer">Weekly Worklog <span>·</span> v1.1.0 <span>·</span> 周度工作档案</footer>
     </main>
   </div>
 
@@ -172,9 +173,11 @@
       </div>
     </section>
   </div>
+  <div class="modal-backdrop" id="reportModal" hidden><section class="modal" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle"><div class="modal-header"><div><div class="eyebrow">WORK REPORT</div><h2 id="reportModalTitle">工作报告导出</h2></div><button type="button" class="icon-btn" id="closeReportModal">×</button></div><p class="report-intro">下载可独立打开的 HTML 年度档案或单周报告；样式内嵌，支持浏览器打印。</p><div class="report-fields"><div class="form-field"><label for="reportScope">导出范围</label><select id="reportScope"><option value="year">年度工作档案</option><option value="week">指定周工作报告</option></select></div><div class="form-field"><label for="reportYear">年份</label><select id="reportYear"></select></div><div class="form-field" id="reportWeekWrap" hidden><label for="reportWeek">周次</label><select id="reportWeek"></select></div></div><p class="report-intro" id="reportInfo"></p><div class="modal-footer"><button type="button" class="btn btn-outline" id="reportPreview">预览报告</button><button type="button" class="btn btn-primary" id="reportDownload">下载 HTML</button></div></section></div>
   <div class="toast" id="toast" role="status"></div>
   <script src="assets/js/calendar.js"></script>
   <script src="assets/js/storage.js"></script>
+  <script src="assets/js/report.js"></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>
